@@ -43,4 +43,4 @@ No need for manual skimming—just input URLs, ask questions, and get answers.
   ```pip install -r requirements.txt```
 - Run the Application:
   
-  ```streamlit run app.py```
+  ```streamlit run main_app.py```
