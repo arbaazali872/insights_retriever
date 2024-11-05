@@ -27,6 +27,20 @@ No need for manual skimming—just input URLs, ask questions, and get answers.
 ### Prerequisites
 
 - **Python 3.8+**
-- Install dependencies:
+- Clone the Repository:
   ```bash
-  pip install streamlit transformers langchain faiss-cpu torch
+   git clone https://github.com/arbaazali872/insights_retriever.git
+   cd <your-repo-directory>
+- Create a Virtual Environment (recommended):
+  
+  ```python3 -m venv venv ```
+  
+  ```source venv/bin/activate```  # For macOS/Linux
+  
+  ```.\venv\Scripts\activate```   # For Windows
+- Install dependencies:
+  
+  ```pip install -r requirements.txt```
+- Run the Application:
+  
+  ```streamlit run app.py```
