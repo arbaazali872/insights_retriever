@@ -1,104 +1,122 @@
 import os
-import streamlit as st
+import logging
 import pickle
+import validators
+from typing import List
+import streamlit as st
+import torch
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import UnstructuredURLLoader
 from langchain.embeddings import HuggingFaceEmbeddings
-import torch
 
-# Set up Streamlit app
-st.title("News Research Tool")
-st.sidebar.title("News Article URLs")
+# Constants
+MODEL_PATH = "sentence-transformers/all-MiniLM-l6-v2"
+QA_MODEL_NAME = "bert-large-uncased-whole-word-masking-finetuned-squad"
+FILE_PATH = "faiss_store.pkl"
+CHUNK_SIZE = 400
 
-urls = [st.sidebar.text_input(f"URL {i+1}") for i in range(3)]
-process_url_clicked = st.sidebar.button("Process URLs")
-file_path = "faiss_store.pkl"
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Initialize placeholders for status updates
-main_placeholder = st.empty()
+# Helper functions
+def validate_urls(urls: List[str]) -> List[str]:
+    """Validate and filter out invalid URLs."""
+    return [url for url in urls if validators.url(url)]
 
-# Set up HuggingFace embeddings
-modelPath = "sentence-transformers/all-MiniLM-l6-v2"
-embeddings = HuggingFaceEmbeddings(model_name=modelPath, model_kwargs={'device': 'cpu'}, encode_kwargs={'normalize_embeddings': False})
+def load_embeddings():
+    """Load HuggingFace embeddings."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return HuggingFaceEmbeddings(
+        model_name=MODEL_PATH, 
+        model_kwargs={'device': str(device)}, 
+        encode_kwargs={'normalize_embeddings': False}
+    )
 
-def load_and_process_data(urls):
-    """Load data from URLs and split it into manageable chunks."""
+def load_and_process_data(urls: List[str], file_path: str):
+    """Load data, split into chunks, and save to FAISS."""
     try:
-        with st.spinner("Loading data..."):
+        with st.spinner("Loading and processing data..."):
             loader = UnstructuredURLLoader(urls=urls)
             data = loader.load()
 
-        # Split the loaded data into smaller chunks
-        text_splitter = RecursiveCharacterTextSplitter(separators=['\n\n', '\n', '.', ','], chunk_size=400)
-        docs = text_splitter.split_documents(data)
+            # Split the data
+            text_splitter = RecursiveCharacterTextSplitter(separators=['\n\n', '\n', '.', ','], chunk_size=CHUNK_SIZE)
+            docs = text_splitter.split_documents(data)
 
-        # Store embeddings in FAISS
-        vectorstore = FAISS.from_documents(docs, embeddings)
+            # Store embeddings in FAISS
+            embeddings = load_embeddings()
+            vectorstore = FAISS.from_documents(docs, embeddings)
 
-        # Save vectorstore to disk
-        with open(file_path, "wb") as f:
-            pickle.dump(vectorstore, f)
+            # Save to file
+            with open(file_path, "wb") as f:
+                pickle.dump(vectorstore, f)
 
         st.success("Data processed and FAISS store saved successfully!")
         return vectorstore
     except Exception as e:
-        st.error(f"Error during data processing: {e}")
+        logger.error(f"Error processing data: {e}")
+        st.error("Failed to process data. Check the logs for details.")
         return None
 
-if process_url_clicked and urls:
-    if not any(urls):
-        st.warning("Please enter at least one URL.")
-    else:
-        load_and_process_data(urls)
+def load_vectorstore(file_path: str):
+    """Load vectorstore from file."""
+    try:
+        with open(file_path, "rb") as f:
+            return pickle.load(f)
+    except FileNotFoundError:
+        st.error("Vectorstore not found. Please process URLs first.")
+        return None
 
-query = main_placeholder.text_input("Question: ")
-if query and os.path.exists(file_path):
-    with open(file_path, "rb") as f:
-        vectorstore = pickle.load(f)
+def answer_question(query: str, vectorstore, qa_model_name: str):
+    """Answer a question using vectorstore and QA model."""
+    similar_docs = vectorstore.similarity_search(query)
+    if not similar_docs:
+        st.info("No relevant documents found.")
+        return
 
-        # Perform similarity search using FAISS to retrieve relevant documents
-        similar_docs = vectorstore.similarity_search(query)
+    # Combine relevant documents into context
+    context = "\n\n".join([doc.page_content for doc in similar_docs])
 
-        if similar_docs:
-            # Load BERT-large model and tokenizer for extractive Q&A
-            model_name = "bert-large-uncased-whole-word-masking-finetuned-squad"
-            model = AutoModelForQuestionAnswering.from_pretrained(model_name)
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # Load QA model and tokenizer
+    model = AutoModelForQuestionAnswering.from_pretrained(qa_model_name)
+    tokenizer = AutoTokenizer.from_pretrained(qa_model_name)
 
-            # Combine relevant documents into a single context
-            context = "\n\n".join([doc.page_content for doc in similar_docs])
+    # Tokenize input
+    inputs = tokenizer(query, context, add_special_tokens=True, return_tensors="pt", max_length=512, truncation=True)
+    input_ids = inputs["input_ids"].tolist()[0]
 
-            # Tokenize the input question and context
-            inputs = tokenizer(query, context, add_special_tokens=True, return_tensors="pt", max_length=512, truncation=True)
-            input_ids = inputs["input_ids"].tolist()[0]
+    # Get model predictions
+    outputs = model(**inputs)
+    answer_start = torch.argmax(outputs.start_logits)
+    answer_end = torch.argmax(outputs.end_logits) + 1
+    answer = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(input_ids[answer_start:answer_end]))
 
-            # Get model outputs (start and end logits)
-            outputs = model(**inputs)
-            answer_start = torch.argmax(outputs.start_logits)
-            answer_end = torch.argmax(outputs.end_logits) + 1
+    st.header("Answer:")
+    st.write(answer)
 
-            # Decode the predicted answer
-            answer = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(input_ids[answer_start:answer_end]))
-            st.header("Answer:")
-            st.write(answer)
+# Main Streamlit app
+def main():
+    st.title("News Research Tool")
+    st.sidebar.title("News Article URLs")
 
-            # Post-process answer if it's too short
-            if len(answer.split()) < 3:
-                st.write("The answer may be incomplete. Here's the relevant context:")
-                st.write(context)
+    urls = [st.sidebar.text_input(f"URL {i+1}") for i in range(3)]
+    process_url_clicked = st.sidebar.button("Process URLs")
 
-            # Remove duplicate sources
-            unique_sources = set()
-            for doc in similar_docs:
-                source = doc.metadata.get("source", "Unknown")
-                unique_sources.add(source)
-
-            # Display the sources
-            st.subheader("Sources:")
-            for source in unique_sources:
-                st.write(source)
-
+    if process_url_clicked:
+        valid_urls = validate_urls(urls)
+        if not valid_urls:
+            st.warning("Please enter at least one valid URL.")
         else:
-            st.write("No relevant documents found.")
+            load_and_process_data(valid_urls, FILE_PATH)
+
+    query = st.text_input("Question:")
+    if query and os.path.exists(FILE_PATH):
+        vectorstore = load_vectorstore(FILE_PATH)
+        if vectorstore:
+            answer_question(query, vectorstore, QA_MODEL_NAME)
+
+if __name__ == "__main__":
+    main()
