@@ -30,7 +30,7 @@ No need for manual skimming—just input URLs, ask questions, and get answers.
 - Clone the Repository:
   ```bash
    git clone https://github.com/arbaazali872/insights_retriever.git
-   cd <your-repo-directory>
+   cd insights_retriever
 - Create a Virtual Environment (recommended):
   
   ```python3 -m venv venv ```
