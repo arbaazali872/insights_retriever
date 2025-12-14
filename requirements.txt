@@ -1,9 +1,27 @@
-streamlit==1.38.0
-transformers==4.44.2
-langchain-community==0.2.15
-langchain-core==0.2.37
-langchain-text-splitters==0.2.2
-faiss-cpu==1.8.0.post1
-torch==2.4.0
-sentence-transformers==3.0.1
-unstructured==0.15.9
+# Core Dependencies
+chainlit>=1.1.0
+langchain==0.1.0
+langchain-community==0.0.20
+
+# Vector Store
+chromadb==0.4.22
+
+# Embeddings
+sentence-transformers==2.3.1
+
+# Document Processing
+newspaper3k==0.2.8
+PyPDF2==3.0.1
+python-docx==1.1.0
+beautifulsoup4==4.12.3
+lxml==5.1.0
+
+# LLM
+ollama==0.1.6
+
+# Utilities
+python-dotenv==1.0.0
+validators==0.22.0
+
+# Database
+sqlalchemy==2.0.25
