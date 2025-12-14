@@ -1,27 +1,25 @@
-# Core Dependencies
-chainlit>=1.1.0
-langchain==0.1.0
-langchain-community==0.0.20
+# Core
+chainlit==2.9.3
+python-dotenv
+
+# LangChain - Compatible versions
+langchain==0.2.16
+langchain-community==0.2.16
+langchain-core==0.2.40
 
 # Vector Store
-chromadb==0.4.22
+chromadb==0.4.24
 
 # Embeddings
-sentence-transformers==2.3.1
-
-# Document Processing
-newspaper3k==0.2.8
-PyPDF2==3.0.1
-python-docx==1.1.0
-beautifulsoup4==4.12.3
-lxml==5.1.0
+sentence-transformers==2.7.0
 
 # LLM
-ollama==0.1.6
+ollama
 
-# Utilities
-python-dotenv==1.0.0
-validators==0.22.0
+# Document Processing
+newspaper3k
+PyPDF2
+validators
 
-# Database
-sqlalchemy==2.0.25
+# Additional
+tiktoken

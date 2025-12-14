@@ -4,7 +4,7 @@ from typing import List, Dict
 from pathlib import Path
 from newspaper import Article
 from PyPDF2 import PdfReader
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from config.settings import CHUNK_SIZE, CHUNK_OVERLAP, DOCS_DIR
 

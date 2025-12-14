@@ -1,5 +1,11 @@
 import chainlit as cl
 import logging
+import sys
+from pathlib import Path
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from core.document_loader import DocumentLoader
 from core.vectorstore import VectorStoreManager
 from core.rag_chain import RAGChain
@@ -68,8 +74,57 @@ async def main(message: cl.Message):
         await handle_file_upload(message.elements)
         return
     
-    # Handle normal query
-    await handle_query(user_input)
+    # Handle normal query with AsyncLangchainCallbackHandler
+    try:
+        stats = vectorstore.get_stats()
+        if stats.get("total_documents", 0) == 0:
+            await cl.Message(
+                content="⚠️ No documents loaded yet. Please add documents first using `/add <url>` or upload files."
+            ).send()
+            return
+        
+        # CRITICAL FIX: Add callback handler
+        cb = cl.AsyncLangchainCallbackHandler()
+        
+        # Query RAG chain with callback
+        response = await rag_chain.query(user_input, callbacks=[cb])
+        
+        if not response or not response.get('answer'):
+            await cl.Message(content="❌ No answer generated").send()
+            return
+        
+        # Format response
+        answer_text = f"{response['answer']}\n\n"
+        
+        # Create text elements for sources
+        text_elements = []
+        if response['sources']:
+            answer_text += "**Sources:**\n"
+            for i, source in enumerate(response['sources'][:3], 1):
+                src_info = source['metadata']
+                source_name = f"source_{i}"
+                
+                # Create text element
+                text_elements.append(
+                    cl.Text(
+                        content=source['content'],
+                        name=source_name,
+                        display="side"
+                    )
+                )
+                
+                answer_text += f"{i}. **{src_info.get('title', src_info.get('source', 'Unknown'))}**\n"
+            
+            source_names = [el.name for el in text_elements]
+            if source_names:
+                answer_text += f"\nSources: {', '.join(source_names)}"
+        
+        await cl.Message(content=answer_text, elements=text_elements).send()
+        logger.info("Answer sent to UI")
+        
+    except Exception as e:
+        logger.error(f"Query error: {e}", exc_info=True)
+        await cl.Message(content=f"❌ Error: {str(e)}").send()
 
 async def handle_add_url(command: str):
     """Add document from URL"""
@@ -128,40 +183,6 @@ async def handle_file_upload(elements):
             await msg.update()
             
     except Exception as e:
-        await cl.Message(content=f"❌ Error: {str(e)}").send()
-
-async def handle_query(question: str):
-    """Handle user questions"""
-    try:
-        # Check if we have documents
-        stats = vectorstore.get_stats()
-        if stats.get("total_documents", 0) == 0:
-            await cl.Message(
-                content="⚠️ No documents loaded yet. Please add documents first using `/add <url>` or upload files."
-            ).send()
-            return
-        
-        msg = cl.Message(content="🔍 Searching...")
-        await msg.send()
-        
-        # Query RAG chain
-        response = rag_chain.query(question)
-        
-        # Format response with sources
-        answer_text = f"**Answer:**\n{response['answer']}\n\n"
-        
-        if response['sources']:
-            answer_text += "**Sources:**\n"
-            for i, source in enumerate(response['sources'][:3], 1):
-                src_info = source['metadata']
-                answer_text += f"\n{i}. **{src_info.get('title', src_info.get('source', 'Unknown'))}**\n"
-                answer_text += f"   _{source['content']}_\n"
-        
-        msg.content = answer_text
-        await msg.update()
-        
-    except Exception as e:
-        logger.error(f"Query error: {e}")
         await cl.Message(content=f"❌ Error: {str(e)}").send()
 
 async def handle_stats():

@@ -1,5 +1,5 @@
 import logging
-from langchain.llms import Ollama
+from langchain_community.llms import Ollama
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from config.settings import OLLAMA_MODEL, OLLAMA_BASE_URL, TEMPERATURE
@@ -14,15 +14,11 @@ class LLMManager:
     def _init_llm(self) -> Ollama:
         """Initialize Ollama LLM"""
         try:
-            callback_manager = None
-            if self.streaming:
-                callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
-            
+            # Don't use callback manager here - let Chainlit handle it
             llm = Ollama(
                 model=OLLAMA_MODEL,
                 base_url=OLLAMA_BASE_URL,
-                temperature=TEMPERATURE,
-                callback_manager=callback_manager
+                temperature=TEMPERATURE
             )
             
             logger.info(f"LLM initialized: {OLLAMA_MODEL}")
