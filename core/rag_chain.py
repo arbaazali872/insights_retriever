@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class RAGChain:
     def __init__(self, vectorstore_manager: VectorStoreManager):
         self.vectorstore = vectorstore_manager
-        self.llm_manager = LLMManager(streaming=False)
+        self.llm_manager = LLMManager()
         self.memory = self._init_memory()
         self.chain = self._create_chain()
     
@@ -38,7 +38,7 @@ class RAGChain:
                 retriever=self.vectorstore.get_retriever(),
                 memory=self.memory,
                 return_source_documents=True,
-                verbose=True
+                verbose=False
             )
             
             logger.info("RAG chain created successfully")
@@ -51,7 +51,7 @@ class RAGChain:
     def query(self, question: str) -> Dict:
         """Query the RAG system"""
         try:
-            response = self.chain({"question": question})
+            response = self.chain.invoke({"question": question})
             
             # Format sources
             sources = []

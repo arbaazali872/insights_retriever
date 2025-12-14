@@ -46,11 +46,23 @@ class VectorStoreManager:
             raise
     
     def similarity_search(self, query: str, k: int = TOP_K_RESULTS) -> List[Document]:
-        """Search for similar documents"""
+        """Search for similar documents with deduplication"""
         try:
-            results = self.vectorstore.similarity_search(query, k=k)
-            logger.info(f"Found {len(results)} similar documents")
-            return results
+            results = self.vectorstore.similarity_search(query, k=k*2)
+            
+            # Deduplicate by content
+            seen = set()
+            unique_results = []
+            for doc in results:
+                content_hash = doc.page_content[:100]
+                if content_hash not in seen:
+                    seen.add(content_hash)
+                    unique_results.append(doc)
+                if len(unique_results) >= k:
+                    break
+            
+            logger.info(f"Found {len(unique_results)} unique documents")
+            return unique_results
         except Exception as e:
             logger.error(f"Error searching: {e}")
             raise

@@ -73,6 +73,7 @@ async def main(message: cl.Message):
 
 async def handle_add_url(command: str):
     """Add document from URL"""
+    global rag_chain
     try:
         url = command.replace("/add", "").strip()
         if not url:
@@ -86,6 +87,10 @@ async def handle_add_url(command: str):
         chunks = doc_loader.load_url(url)
         vectorstore.add_documents(chunks)
         
+        # Reinitialize RAG chain with new data
+        rag_chain = RAGChain(vectorstore)
+        cl.user_session.set("rag_chain", rag_chain)
+        
         msg.content = f"✅ Successfully added article!\n" \
                       f"- URL: {url}\n" \
                       f"- Chunks: {len(chunks)}"
@@ -96,6 +101,7 @@ async def handle_add_url(command: str):
 
 async def handle_file_upload(elements):
     """Handle file uploads"""
+    global rag_chain
     try:
         for element in elements:
             msg = cl.Message(content=f"📥 Processing: {element.name}")
@@ -112,6 +118,11 @@ async def handle_file_upload(elements):
                 continue
             
             vectorstore.add_documents(chunks)
+            
+            # Reinitialize RAG chain
+            rag_chain = RAGChain(vectorstore)
+            cl.user_session.set("rag_chain", rag_chain)
+            
             msg.content = f"✅ Successfully added: {element.name}\n" \
                           f"- Chunks: {len(chunks)}"
             await msg.update()
@@ -130,7 +141,7 @@ async def handle_query(question: str):
             ).send()
             return
         
-        msg = cl.Message(content="🔍 Searching knowledge base...")
+        msg = cl.Message(content="🔍 Searching...")
         await msg.send()
         
         # Query RAG chain
@@ -150,6 +161,7 @@ async def handle_query(question: str):
         await msg.update()
         
     except Exception as e:
+        logger.error(f"Query error: {e}")
         await cl.Message(content=f"❌ Error: {str(e)}").send()
 
 async def handle_stats():
@@ -169,6 +181,8 @@ async def handle_clear_memory():
 
 async def handle_reset():
     """Reset entire knowledge base"""
+    global rag_chain
     vectorstore.clear()
-    rag_chain.clear_memory()
+    rag_chain = RAGChain(vectorstore)
+    cl.user_session.set("rag_chain", rag_chain)
     await cl.Message(content="🗑️ All documents and history cleared!").send()
