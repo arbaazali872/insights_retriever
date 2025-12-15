@@ -1,9 +1,27 @@
-streamlit==1.38.0
-transformers==4.44.2
-langchain-community==0.2.15
-langchain-core==0.2.37
-langchain-text-splitters==0.2.2
-faiss-cpu==1.8.0.post1
-torch==2.4.0
-sentence-transformers==3.0.1
-unstructured==0.15.9
+# Core
+chainlit==2.9.3
+python-dotenv
+
+# LangChain - Compatible versions
+langchain==0.2.16
+langchain-community==0.2.16
+langchain-core==0.2.40
+langchain-chroma==0.1.4
+langchain-huggingface==0.0.2
+
+# Vector Store
+chromadb==0.4.24
+
+# Embeddings
+sentence-transformers==2.7.0
+
+# LLM
+ollama
+
+# Document Processing
+newspaper3k
+PyPDF2
+validators
+
+# Additional
+tiktoken
