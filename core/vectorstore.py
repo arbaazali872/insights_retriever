@@ -1,8 +1,8 @@
 import logging
 from typing import List, Optional
-from langchain.schema import Document
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_core.documents import Document
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
 from config.settings import CHROMA_DIR, EMBEDDING_MODEL, EMBEDDING_DEVICE, TOP_K_RESULTS
 
 logger = logging.getLogger(__name__)

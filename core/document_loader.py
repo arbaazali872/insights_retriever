@@ -28,6 +28,9 @@ class DocumentLoader:
             article.download()
             article.parse()
             
+            if not article.text or len(article.text.strip()) < 100:
+                raise ValueError("No content extracted from URL. The page may be behind a paywall or use JavaScript rendering.")
+            
             metadata = {
                 "source": url,
                 "title": article.title,
@@ -39,6 +42,9 @@ class DocumentLoader:
             # Create document and split
             doc = Document(page_content=article.text, metadata=metadata)
             chunks = self.text_splitter.split_documents([doc])
+            
+            if len(chunks) == 0:
+                raise ValueError("Document splitting resulted in 0 chunks. Content may be too short.")
             
             logger.info(f"Loaded URL: {url} ({len(chunks)} chunks)")
             return chunks
